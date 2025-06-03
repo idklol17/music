@@ -157,7 +157,7 @@
         import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
 
 
-        // Your web app's Firebase configuration (using your 'music-1225c' project)
+        // Your web app's Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyA0LKKzFBJvAeJ2pQ4i5Ejpbec6Hq8eE6w",
             authDomain: "music-1225c.firebaseapp.com",
@@ -191,6 +191,11 @@
         window.signOut = signOut;
         window.onAuthStateChanged = onAuthStateChanged;
         window.currentUser = null; // To store the current authenticated user
+
+        // **FIX ADDED HERE:** Make signInWithGoogle and signOutUser globally accessible
+        window.signInWithGoogle = signInWithGoogle;
+        window.signOutUser = signOutUser;
+
 
         // --- Existing JavaScript from previous steps ---
         const audio = document.getElementById('audio-source');
