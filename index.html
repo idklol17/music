@@ -174,7 +174,7 @@
         const storage = getStorage(app);
         const auth = getAuth(app); // Initialize Auth
 
-        // Make Firebase functions and objects globally accessible
+        // Make Firebase objects/methods globally accessible (except functions that are defined later)
         window.db = db;
         window.collection = collection;
         window.addDoc = addDoc;
@@ -191,10 +191,6 @@
         window.signOut = signOut;
         window.onAuthStateChanged = onAuthStateChanged;
         window.currentUser = null; // To store the current authenticated user
-
-        // **FIX ADDED HERE:** Make signInWithGoogle and signOutUser globally accessible
-        window.signInWithGoogle = signInWithGoogle;
-        window.signOutUser = signOutUser;
 
 
         // --- Existing JavaScript from previous steps ---
@@ -504,6 +500,12 @@
             // onAuthStateChanged will trigger loadSongsFromFirebase initially and on subsequent changes
             // No need to call loadSongsFromFirebase here directly anymore.
         });
+
+        // **FIX MOVED HERE:** Make signInWithGoogle and signOutUser globally accessible
+        // These lines MUST come AFTER the functions are defined above.
+        window.signInWithGoogle = signInWithGoogle;
+        window.signOutUser = signOutUser;
+
     </script>
 
 </body>
