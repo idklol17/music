@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Music Playlist</title>
+</head>
+<body>
+
+    <div id="music-player" style="
+        font-family: Arial, sans-serif;
+        width: 300px;
+        margin: 50px auto;
+        padding: 20px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        background-color: #f9f9f9;
+    ">
+        <div id="auth-status" style="margin-bottom: 20px;">
+            <p id="user-info" style="font-size: 0.9em; color: #555;">Not signed in.</p>
+            <button id="signInButton" onclick="signInWithGoogle()" style="
+                padding: 8px 12px;
+                font-size: 0.9em;
+                cursor: pointer;
+                background-color: #4285F4; /* Google Blue */
+                color: white;
+                border: none;
+                border-radius: 5px;
+                margin-right: 5px;
+            ">Sign In with Google</button>
+            <button id="signOutButton" onclick="signOutUser()" style="
+                padding: 8px 12px;
+                font-size: 0.9em;
+                cursor: pointer;
+                background-color: #dc3545; /* Red for danger/sign-out */
+                color: white;
+                border: none;
+                border-radius: 5px;
+                display: none; /* Hidden until signed in */
+            ">Sign Out</button>
+        </div>
+
+        <h2 style="margin-top: 0; color: #333;">Now Playing</h2>
+        <p id="song-title" style="font-size: 1.2em; font-weight: bold; margin-bottom: 5px; color: #555;">Song Title</p>
+        <p id="artist-name" style="font-size: 0.9em; color: #777; margin-bottom: 20px;">Artist Name</p>
+
+        <audio id="audio-source" style="width: 100%; margin-bottom: 15px;" controls></audio>
+
+        <div id="controls" style="display: flex; justify-content: center; gap: 10px; margin-bottom: 10px;">
+            <button onclick="playPrevious()" style="
+                padding: 10px 15px;
+                font-size: 1em;
+                cursor: pointer;
+                background-color: #007bff;
+                color: white;
+                border: none;
+                border-radius: 5px;
+            ">Previous</button>
+            <button onclick="togglePlayPause()" style="
+                padding: 10px 15px;
+                font-size: 1em;
+                cursor: pointer;
+                background-color: #28a745;
+                color: white;
+                border: none;
+                border-radius: 5px;
+            ">Play/Pause</button>
+            <button onclick="playNext()" style="
+                padding: 10px 15px;
+                font-size: 1em;
+                cursor: pointer;
+                background-color: #007bff;
+                color: white;
+                border: none;
+                border-radius: 5px;
+            ">Next</button>
+        </div>
+        <button id="loopButton" onclick="toggleLoop()" style="
+            padding: 8px 12px;
+            font-size: 0.9em;
+            cursor: pointer;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            margin-top: 5px;
+        ">Loop: Off</button>
+
+        <h3 style="margin-top: 30px; color: #333;">Add New Song</h3>
+        <div id="add-song-section" style="
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px dashed #ccc;
+            border-radius: 5px;
+            background-color: #f0f0f0;
+            text-align: left;
+        ">
+            <label for="filePicker" style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Choose Audio File:</label>
+            <input type="file" id="filePicker" accept="audio/*" style="width: 100%; margin-bottom: 10px;">
+
+            <label for="newSongTitle" style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Song Title:</label>
+            <input type="text" id="newSongTitle" placeholder="e.g., My Awesome Track" style="
+                width: calc(100% - 16px);
+                padding: 8px;
+                margin-bottom: 10px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+            ">
+
+            <label for="newArtistName" style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Artist Name:</label>
+            <input type="text" id="newArtistName" placeholder="e.g., The Cool Band" style="
+                width: calc(100% - 16px);
+                padding: 8px;
+                margin-bottom: 15px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+            ">
+
+            <button id="addSongButton" onclick="addNewSong()" style="
+                width: 100%;
+                padding: 10px 15px;
+                font-size: 1em;
+                cursor: pointer;
+                background-color: #007bff;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                opacity: 0.5; /* Dimmed if not signed in */
+                cursor: not-allowed;
+            " disabled>Sign In to Add Song</button>
+            <p id="uploadStatus" style="font-size: 0.8em; color: #666; margin-top: 10px;"></p>
+        </div>
+
+
+        <h3 style="margin-top: 30px; color: #333;">Playlist</h3>
+        <ul id="playlist" style="
+            list-style: none;
+            padding: 0;
+            text-align: left;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            padding: 10px;
+            background-color: #fff;
+        ">
+            </ul>
+    </div>
+
+    <script type="module">
+        // Import necessary Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-storage.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
+
+
+        // Your web app's Firebase configuration (using your 'music-1225c' project)
+        const firebaseConfig = {
+            apiKey: "AIzaSyA0LKKzFBJvAeJ2pQ4i5Ejpbec6Hq8eE6w",
+            authDomain: "music-1225c.firebaseapp.com",
+            projectId: "music-1225c",
+            storageBucket: "music-1225c.firebasestorage.app",
+            messagingSenderId: "1026658369196",
+            appId: "1:1026658369196:web:42bf746fee2541f7fbe909",
+            measurementId: "G-51MSYFJHK8"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+        const auth = getAuth(app); // Initialize Auth
+
+        // Make Firebase functions and objects globally accessible
+        window.db = db;
+        window.collection = collection;
+        window.addDoc = addDoc;
+        window.getDocs = getDocs;
+        window.query = query;
+        window.where = where;
+        window.storage = storage;
+        window.ref = ref;
+        window.uploadBytes = uploadBytes;
+        window.getDownloadURL = getDownloadURL;
+        window.auth = auth;
+        window.GoogleAuthProvider = GoogleAuthProvider;
+        window.signInWithPopup = signInWithPopup;
+        window.signOut = signOut;
+        window.onAuthStateChanged = onAuthStateChanged;
+        window.currentUser = null; // To store the current authenticated user
+
+        // --- Existing JavaScript from previous steps ---
+        const audio = document.getElementById('audio-source');
+        const songTitle = document.getElementById('song-title');
+        const artistName = document.getElementById('artist-name');
+        const playlistElement = document.getElementById('playlist');
+        const loopButton = document.getElementById('loopButton');
+
+        const filePicker = document.getElementById('filePicker');
+        const newSongTitleInput = document.getElementById('newSongTitle');
+        const newArtistNameInput = document.getElementById('newArtistName');
+        const uploadStatus = document.getElementById('uploadStatus');
+
+        // Auth UI elements
+        const userInfo = document.getElementById('user-info');
+        const signInButton = document.getElementById('signInButton');
+        const signOutButton = document.getElementById('signOutButton');
+        const addSongButton = document.getElementById('addSongButton'); // Reference to the add song button
+
+
+        const songs = [];
+
+        let currentSongIndex = 0;
+        let isPlaying = false;
+        let isLooping = false;
+
+        // Function to load and play a song
+        function loadSong(songIndex) {
+            if (songs.length === 0) {
+                songTitle.textContent = "No song selected";
+                artistName.textContent = "";
+                audio.src = "";
+                return;
+            }
+            const song = songs[songIndex];
+            songTitle.textContent = song.title;
+            artistName.textContent = song.artist;
+            audio.src = song.src;
+            audio.load();
+            if (isPlaying) {
+                audio.play();
+            }
+            highlightCurrentSong(songIndex);
+        }
+
+        // Function to play or pause the current song
+        function togglePlayPause() {
+            if (audio.src === "") return;
+            if (isPlaying) {
+                audio.pause();
+            } else {
+                audio.play();
+            }
+            isPlaying = !isPlaying;
+        }
+
+        // Function to play the next song
+        function playNext() {
+            if (songs.length === 0) return;
+            currentSongIndex = (currentSongIndex + 1) % songs.length;
+            loadSong(currentSongIndex);
+            if (!isPlaying) {
+                togglePlayPause();
+            }
+        }
+
+        // Function to play the previous song
+        function playPrevious() {
+            if (songs.length === 0) return;
+            currentSongIndex = (currentSongIndex - 1 + songs.length) % songs.length;
+            loadSong(currentSongIndex);
+            if (!isPlaying) {
+                togglePlayPause();
+            }
+        }
+
+        // Function to toggle loop state
+        function toggleLoop() {
+            isLooping = !isLooping;
+            if (isLooping) {
+                loopButton.textContent = "Loop: On";
+                loopButton.style.backgroundColor = "#ffc107";
+                loopButton.style.color = "#333";
+            } else {
+                loopButton.textContent = "Loop: Off";
+                loopButton.style.backgroundColor = "#6c757d";
+                loopButton.style.color = "white";
+            }
+        }
+
+        // --- Modified addNewSong function to include userId ---
+        async function addNewSong() {
+            if (!window.currentUser) {
+                alert("Please sign in to add songs.");
+                return;
+            }
+
+            const file = filePicker.files[0];
+            const title = newSongTitleInput.value.trim();
+            const artist = newArtistNameInput.value.trim();
+
+            if (!file) {
+                alert("Please select an audio file to upload.");
+                return;
+            }
+
+            if (!title) {
+                alert("Please enter a song title.");
+                return;
+            }
+
+            uploadStatus.textContent = "Uploading file...";
+            try {
+                // 1. Upload file to Firebase Storage with userId metadata
+                // Store files in a user-specific folder: user_songs/{userId}/{fileName}
+                const storageRef = window.ref(window.storage, `user_songs/${window.currentUser.uid}/${file.name}_${Date.now()}`);
+                const metadata = {
+                    customMetadata: {
+                        userId: window.currentUser.uid // Associate file with user
+                    }
+                };
+                const uploadTask = await window.uploadBytes(storageRef, file, metadata);
+                console.log('File uploaded!', uploadTask);
+                uploadStatus.textContent = "File uploaded! Getting download URL...";
+
+                // 2. Get the permanent download URL
+                const downloadURL = await window.getDownloadURL(uploadTask.ref);
+                console.log('Download URL:', downloadURL);
+                uploadStatus.textContent = "Download URL obtained. Saving metadata...";
+
+                // 3. Save song metadata (including the Storage URL and userId) to Firestore
+                const newSongData = {
+                    title: title,
+                    artist: artist || "Unknown Artist",
+                    src: downloadURL,
+                    timestamp: Date.now(),
+                    userId: window.currentUser.uid // Associate song with user in Firestore
+                };
+
+                const docRef = await window.addDoc(window.collection(window.db, "songs"), newSongData);
+                console.log("Document written with ID: ", docRef.id);
+                uploadStatus.textContent = "Song added successfully!";
+
+                // Re-load songs to ensure the new song is added to the user's view
+                loadSongsFromFirebase();
+
+                alert("Song added and uploaded to Firebase!");
+                // Clear input fields
+                newSongTitleInput.value = '';
+                newArtistNameInput.value = '';
+                filePicker.value = '';
+
+            } catch (e) {
+                console.error("Error adding song: ", e);
+                uploadStatus.textContent = `Error: ${e.message}`;
+                alert("Error adding song to Firebase: " + e.message);
+            }
+        }
+
+        // --- Modified loadSongsFromFirebase function to filter by userId ---
+        async function loadSongsFromFirebase() {
+            songs.length = 0; // Clear existing songs array first
+            playlistElement.innerHTML = '<li style="text-align: center; color: #999;">Loading songs...</li>'; // Show loading state
+
+            try {
+                let q;
+                if (window.currentUser) {
+                    // If a user is signed in, query only their songs
+                    q = window.query(window.collection(window.db, "songs"), window.where("userId", "==", window.currentUser.uid));
+                    userInfo.textContent = `Signed in as: ${window.currentUser.displayName || window.currentUser.email}`;
+                    signInButton.style.display = 'none';
+                    signOutButton.style.display = 'inline-block';
+                    addSongButton.disabled = false;
+                    addSongButton.style.opacity = '1';
+                    addSongButton.textContent = 'Upload Song & Add to Playlist';
+                } else {
+                    // If no user is signed in, display a message and disable adding songs
+                    // For a truly personal playlist, display no songs when logged out.
+                    q = window.query(window.collection(window.db, "songs"), window.where("userId", "==", "no-user-logged-in")); // Query for a non-existent user ID
+                    userInfo.textContent = "Not signed in.";
+                    signInButton.style.display = 'inline-block';
+                    signOutButton.style.display = 'none';
+                    addSongButton.disabled = true;
+                    addSongButton.style.opacity = '0.5';
+                    addSongButton.textContent = 'Sign In to Add Song';
+                }
+
+
+                const querySnapshot = await window.getDocs(q);
+                songs.length = 0; // Clear again after potential loading message
+                querySnapshot.forEach((doc) => {
+                    const songData = doc.data();
+                    songs.push(songData);
+                });
+                songs.sort((a, b) => a.timestamp - b.timestamp);
+
+                displayPlaylist();
+                if (songs.length > 0) {
+                    loadSong(currentSongIndex);
+                } else {
+                     songTitle.textContent = "No songs in playlist.";
+                     artistName.textContent = "";
+                     audio.src = ""; // Clear audio source if no songs
+                }
+                console.log("Songs loaded from Firebase.");
+            } catch (e) {
+                console.error("Error loading documents from Firebase: ", e);
+                alert("Error loading songs from Firebase: " + e.message);
+            }
+        }
+
+
+        // Function to create and display the playlist
+        function displayPlaylist() {
+            playlistElement.innerHTML = '';
+            if (songs.length === 0) {
+                playlistElement.innerHTML = '<li style="text-align: center; color: #999;">No songs in this playlist.</li>';
+                return;
+            }
+            songs.forEach((song, index) => {
+                const listItem = document.createElement('li');
+                listItem.style.padding = '8px 0';
+                listItem.style.borderBottom = '1px solid #eee';
+                listItem.style.cursor = 'pointer';
+                listItem.style.transition = 'background-color 0.2s ease';
+                listItem.textContent = `${index + 1}. ${song.title} - ${song.artist}`;
+                listItem.onclick = () => {
+                    currentSongIndex = index;
+                    loadSong(currentSongIndex);
+                    if (!isPlaying) {
+                        togglePlayPause();
+                    }
+                };
+                listItem.onmouseover = () => { listItem.style.backgroundColor = '#f0f0f0'; };
+                listItem.onmouseout = () => { listItem.style.backgroundColor = '#fff'; };
+                playlistElement.appendChild(listItem);
+            });
+            highlightCurrentSong(currentSongIndex); // Highlight after display
+        }
+
+        // Function to highlight the currently playing song in the playlist
+        function highlightCurrentSong(index) {
+            const listItems = playlistElement.children;
+            for (let i = 0; i < listItems.length; i++) {
+                listItems[i].style.fontWeight = 'normal';
+                listItems[i].style.color = '#333';
+            }
+            // Ensure there are items to highlight and the index is valid
+            if (listItems[index] && songs.length > 0) {
+                listItems[index].style.fontWeight = 'bold';
+                listItems[index].style.color = '#007bff';
+            }
+        }
+
+        // Event listener for when the current song ends
+        audio.addEventListener('ended', () => {
+            if (isLooping) {
+                audio.currentTime = 0;
+                audio.play();
+            } else {
+                playNext();
+            }
+        });
+
+        // --- Authentication Functions ---
+        async function signInWithGoogle() {
+            const provider = new window.GoogleAuthProvider();
+            try {
+                await window.signInWithPopup(window.auth, provider);
+                // onAuthStateChanged will handle UI updates and loading songs
+            } catch (error) {
+                console.error("Error signing in with Google: ", error);
+                alert("Could not sign in: " + error.message);
+            }
+        }
+
+        async function signOutUser() {
+            try {
+                await window.signOut(window.auth);
+                // onAuthStateChanged will handle UI updates and loading songs
+            } catch (error) {
+                console.error("Error signing out: ", error);
+                alert("Could not sign out: " + error.message);
+            }
+        }
+
+        // --- Auth State Listener ---
+        // This function runs whenever the user's sign-in state changes
+        window.onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // User is signed in
+                window.currentUser = user;
+                console.log("User signed in:", user.uid, user.displayName);
+            } else {
+                // User is signed out
+                window.currentUser = null;
+                console.log("User signed out.");
+            }
+            // Always reload songs based on the current user state
+            loadSongsFromFirebase();
+        });
+
+
+        // Initial load (now handled by onAuthStateChanged)
+        document.addEventListener('DOMContentLoaded', () => {
+            // onAuthStateChanged will trigger loadSongsFromFirebase initially and on subsequent changes
+            // No need to call loadSongsFromFirebase here directly anymore.
+        });
+    </script>
+
+</body>
+</html>
