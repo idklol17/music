@@ -129,7 +129,7 @@
                 border-radius: 5px;
                 opacity: 0.5; /* Dimmed if not signed in */
                 cursor: not-allowed;
-            " disabled>Sign In to Add Song</button>
+            " disabled>Upload Song & Add to Playlist</button>
             <p id="uploadStatus" style="font-size: 0.8em; color: #666; margin-top: 10px;"></p>
         </div>
 
@@ -501,10 +501,11 @@
             // No need to call loadSongsFromFirebase here directly anymore.
         });
 
-        // **FIX MOVED HERE:** Make signInWithGoogle and signOutUser globally accessible
+        // Make functions globally accessible for HTML onclick attributes.
         // These lines MUST come AFTER the functions are defined above.
         window.signInWithGoogle = signInWithGoogle;
         window.signOutUser = signOutUser;
+        window.addNewSong = addNewSong; // <-- NEW LINE ADDED HERE
 
     </script>
 
